@@ -1,0 +1,274 @@
+<?php
+
+function teamfilter_menu(){
+    $items['teamfilter/address'] = array(
+        'title' => 'get china address of team',
+        'page callback' => 'teamfilter_get_address', 
+        'access callback' => true,
+        'type' => MENU_CALLBACK,
+    );
+
+    return $items;
+}
+
+function teamfilter_get_address($form, $form_state){
+    //$province = filter_input(INPUT_POST, "field_address_province");
+    //$city = filter_input(INPUT_POST, "field_address_city");
+    //$county = filter_input(INPUT_POST, "field_address_county");
+    //$detail = filter_input(INTPUT_POST, "field_address_detail");
+
+    $province = $form_state['values']['field_address_province'];
+    $city = $form_state['values']['field_address_city'];
+    $county = $form_state['values']['field_address_county'];
+    $detail = $form_state['values']['field_address_detail'];
+    $areas = array();
+    //$options = array( '' => t('请选择'));
+    if($province){
+        //选择了省份
+        if($city){
+            //选择了城市
+            if($county){
+                //选择了县区
+                //$areas = teamfilter_get_details($county);
+                //$form['field_address_detail']['#options'] += $areas;
+                return $form['field_address_detail'];
+            }else{
+                //未选择县区
+                //$areas = teamfilter_get_counties($city);
+                //$form['field_address_county']['#options'] += $areas;
+                return $form['field_address_county'];
+            }
+        }else{
+            //未选择城市
+            //$areas = teamfilter_get_cities($province);
+            //$form['field_address_city']['#options'] += $areas;
+            return $form['field_address_city'];
+        }
+    }else{
+
+    }
+    
+
+}
+
+function _render_options($options){
+    foreach ($options as $k => $v){
+        $output .= "<option value='$k'>$v</option>";
+    }
+
+    return $output;
+}
+
+function _get_next_filter($filter){
+    $filters = array(
+        'field_address_province',
+        'field_address_city',
+        'field_address_county',
+        'field_address_detail',
+    );
+
+    $k = array_search($filter, $filters);
+
+    if($k < count($filters)-1){
+        return $filters[$k + 1];
+    }else{
+        return NULL;
+    }
+}
+
+
+function teamfilter_reset_filter($filter, &$form){
+    $next = _get_next_filter($filter);
+    if($next){
+        $form[$filter] = array(
+            '#type' => 'select',
+            '#options' => array( '' => '请选择', ),
+            '#ajax' => array(
+                'callback' => 'teamfilter_get_address',
+                //'callback' => 'teamfilter_get_address',
+                'wrapper' => "wrapper-" . _get_next_filter($filter),
+                'event' => 'change',
+                'method' => 'replace',
+            ),
+            '#prefix' => "<div id='wrapper-$filter'>",
+            '#suffix' => '</div>',
+        );
+    }else{
+        $form[$filter] = array(
+            '#type' => 'select',
+            '#options' => array( '' => '请选择', ),
+            '#prefix' => "<div id='wrapper-$filter'>",
+            '#suffix' => '</div>',
+        );
+    }
+}
+
+function teamfilter_set_filter($filter, &$form, $options){
+    $next = _get_next_filter($filter);
+    if($next){
+        $form[$filter] = array(
+            '#type' => 'select',
+            '#options' => $options,
+            '#ajax' => array(
+                'callback' => 'teamfilter_get_address',
+                'wrapper' => "wrapper-" . $next,
+                'event' => 'change',
+                'method' => 'replace',
+            ),
+            '#prefix' => "<div id='wrapper-$filter'>",
+            '#suffix' => '</div>',
+        );
+    }else{
+        $form[$filter] = array(
+            '#type' => 'select',
+            '#options' => $options,
+            '#prefix' => "<div id='wrapper-$filter'>",
+            '#suffix' => '</div>',
+        );
+    }
+}
+
+//function teamfilter_form_alter(&$form, &$form_state, $form_id){
+function teamfilter_form_views_exposed_form_alter(&$form, &$form_state, $form_id){
+    if($form["#id"] == "views-exposed-form-team-page"){
+        // 下边添加链接
+        $form['#prefix'] = "<div id='teamfilter-exposed-form'>";
+        $form['#suffix'] = "<div>没有找到附近的团队？<a class='btn btn-small' href='/node/add/team'>创建一个</a>或者<a class='btn btn-small' href='/team'>重新搜索</a></div></div>";
+        //exposed filter form 把ajax需要的相关信息给删了，现在要加上
+        $form['form_information'] = array(
+            '#prefix' => '<div style="display:none">',
+            '#suffix' => '</div>',
+            '#type' => 'select',
+            '#disabled' => true,
+            '#options' => array(
+                    'form_id' => $form['#form_id'],
+                    'form_build_id' => $form['#build_id'],
+                    'form_token' => isset($form['#token']) ? $form['#token'] : '',
+                    ),
+        );
+
+        $form['#attached']['js'] = array( //添加js文件
+            drupal_get_path('module', 'teamfilter') . '/teamfilter.js',
+        );
+        //$province = filter_input(INPUT_GET, "field_address_province");
+        //$city = filter_input(INPUT_GET, "field_address_city");
+        //$county = filter_input(INPUT_GET, "field_address_county");
+        if(isset($form_state['values'])){
+            $province = $form_state['values']['field_address_province'];
+            $city = $form_state['values']['field_address_city'];
+            $county = $form_state['values']['field_address_county'];
+            $detail = $form_state['values']['field_address_detail'];
+        }elseif(isset($form_state['input'])){
+            $province = $form_state['input']['field_address_province'];
+            $city = $form_state['input']['field_address_city'];
+            $county = $form_state['input']['field_address_county'];
+            $detail = $form_state['input']['field_address_detail'];
+        }
+
+        $provinces = teamfilter_get_provinces();
+
+        teamfilter_set_filter('field_address_province', $form, $provinces);
+
+
+        teamfilter_reset_filter('field_address_city', $form);
+        teamfilter_reset_filter('field_address_county', $form);
+        teamfilter_reset_filter('field_address_detail', $form);
+
+        if(isset($province)){
+            $cities = teamfilter_get_cities($province);
+            teamfilter_set_filter('field_address_city', $form, $cities);
+
+            if($city){
+                $counties = teamfilter_get_counties($city);
+                teamfilter_set_filter('field_address_county', $form, $counties);
+                if($county){
+                    $details = teamfilter_get_details($county);
+                    teamfilter_set_filter('field_address_detail', $form, $details);
+                }
+            }
+        }
+    }
+}
+
+
+function teamfilter_get_provinces(){
+    $sql = "select `region_name`, `region_id` from {field_data_field_address} fa, {china_address} ca where bundle = 'team' and (ca.region_id = fa.field_address_province)";
+    $result = db_query($sql);
+    $province_options = array(
+        '' => t('请选择'),
+    );
+    foreach($result as $rc){
+         $province_options[$rc->region_id] = t($rc->region_name);
+    }
+
+    return $province_options;
+}
+
+function teamfilter_get_cities($province_id){
+    $sql = "select `region_name`, `region_id` from {field_data_field_address} fa, {china_address} ca where bundle = 'team' and (ca.region_id = fa.field_address_city) and fa.field_address_province = :pid"; // find cities of the province
+    $result = db_query($sql, array(':pid' => $province_id));
+    $city_options = array(
+        '' => t("请选择"),
+    );
+    foreach($result as $rc){
+         $city_options[$rc->region_id] = t($rc->region_name);
+    }
+
+    return $city_options;
+}
+
+function teamfilter_get_counties($city_id){
+    $sql = "select `region_name`, `region_id` from {field_data_field_address} fa, {china_address} ca where bundle = 'team' and (ca.region_id = fa.field_address_county) and fa.field_address_city = :cid"; // find cities of the province
+    $result = db_query($sql, array(':cid' => $city_id));
+    $city_options = array(
+        '' => t("请选择"),
+    );
+    foreach($result as $rc){
+         $city_options[$rc->region_id] = t($rc->region_name);
+    }
+
+    return $city_options;
+}
+
+function teamfilter_get_details($county_id){
+    $sql = "select field_address_detail as fd from {field_data_field_address} fa where bundle = 'team' and fa.field_address_county = :cid"; // find cities of the province
+    $result = db_query($sql, array(':cid' => $county_id));
+    $city_options = array(
+        '' => t("请选择"),
+    );
+    foreach($result as $rc){
+         $city_options[$rc->fd] = t($rc->fd);
+    }
+
+    return $city_options;
+}
+
+
+//function teamfilter_field_widget_form_alter(&$element, &$form_state, $context){
+    //dpm($element);
+    //dpm("hook field_widget_form_alter");
+//}
+
+//function teamfilter_preprocess_views_exposed_form(&$vars, $hook){
+//    if ($vars['form']['#id'] == 'views-exposed-form-team-page') {
+//    }
+//}
+
+/*
+// 没有设置filter的时候，设置成显示全部，否则会有Illegal choice的错误
+function teamfilter_init(){
+    if (!isset($_GET['field_address_province'])) {
+        $_GET['field_address_province'] = '';
+    }
+    if (!isset($_GET['field_address_city'])) {
+        $_GET['field_address_city'] = '';
+    }
+    if (!isset($_GET['field_address_county'])) {
+        $_GET['field_address_county'] = '';
+    }
+    if (!isset($_GET['field_address_detail'])) {
+        $_GET['field_address_detail'] = '';
+    }
+}
+*/
+

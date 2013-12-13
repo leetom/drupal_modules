@@ -1,0 +1,10 @@
+name = Team Page, filter
+description = codepku用于修改team 页面filter的模块
+core = 7.x
+package = codePKu
+
+; files[] = includes/context.inc
+files[] = teamfilter.module
+; files[] = teamfilter.views.inc
+
+
